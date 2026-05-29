@@ -5,7 +5,7 @@ import Button from "../common/Button";
 import "./ProductCard.css";
 
 export default function ProductCard({ product, orientation = "vertical" }) {
-  const { addToCart } = useCart();
+  const { addItem } = useCart();
   const { name, price, stock, imagesUrl, description } = product || {};
 
   if (!product) {
@@ -24,7 +24,7 @@ export default function ProductCard({ product, orientation = "vertical" }) {
       ? { text: "En stock", variant: "success" }
       : { text: "Agotado", variant: "error" };
   const hasDiscount = product.discount && product.discount > 0;
-  const handleAddToCart = () => addToCart(product, 1);
+  const handleAddToCart = () => addItem(product, 1);
   const productLink = `/product/${product._id}`;
   const cardClass = `product-card product-card--${orientation}`;
 

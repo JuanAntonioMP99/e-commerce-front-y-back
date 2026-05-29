@@ -3,18 +3,18 @@ import Button from "../common/Button";
 import Icon from "../common/Icon/Icon";
 
 export default function CartView() {
-  const { cartItems, removeFromCart, updateQuantity } = useCart();
+  const { items, removeItem, updateQuantity } = useCart();
 
   return (
     <div className="cart-view">
       <div className="cart-view-header">
         <h2>
-          {cartItems.length} {cartItems.length === 1 ? "artículo" : "artículos"}
+          {items.length} {items.length === 1 ? "artículo" : "artículos"}
         </h2>
       </div>
 
-      {cartItems &&
-        cartItems.map((item) => (
+      {items &&
+        items.map((item) => (
           <div className="cart-item" key={item._id}>
             <div className="cart-item-image">
               <img src={item.imagesUrl[0]} alt={item.name} loading="lazy" />
@@ -51,7 +51,7 @@ export default function CartView() {
               variant="ghost"
               className="danger"
               size="sm"
-              onClick={() => removeFromCart(item._id)}
+              onClick={() => removeItem(item._id)}
               title="Eliminar artículo"
             >
               <Icon name="trash" size={16} />
