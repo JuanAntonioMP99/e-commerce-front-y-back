@@ -1,46 +1,56 @@
 import { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { useAuth } from "./AuthContext";
 import { 
-  getCart as serviceGetCart, 
-  addItem as serviceAddItem, 
-  updateQuantity as serviceUpdateQuantity, 
-  removeItem as serviceRemoveItem, 
+  getCartByUser,
+  createCart, 
+  replaceCart, 
   clearCart as serviceClearCart, 
 } from "../services/cartService";
+import { readLocalJSON, writeLocalJSON } from "../utils/storageHelpers";
+
 
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
 
-  const {isAuthenticated} = useAuth();
-  const [items, setItems] = useState([]);
+  const CART_STORAGE_KEY = "cart"; 
+  const {isAuthenticated, user} = useAuth();
+  const [cartId, setCartId] = useState(null); 
+  const [items, setItems] = useState(() => 
+    setItems(readLocalJSON(CART_STORAGE_KEY) ?? []), 
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null); 
 
   useEffect(() => {
+    setItems(writeLocalJSON(CART_STORAGE_KEY, items));
+  }, [items]); 
+
+  useEffect(() => {
     if (!isAuthenticated) {
-      setItems([]);
+      setCartId(null); 
       return; 
     }
 
     let cancelled = false; 
-    (async () => {
-      setLoading(true)
-      try {
-        const data = await serviceGetCart(); 
-        if (!cancelled)setItems(data.items); 
-      } catch (error) {
-        if (!cancelled) setError(error.kind ?? "SERVER_ERROR");
-      } finally {
-        if (!cancelled) setLoading(false); 
-      }
-    })();
-    //este tipo de funcion sobre todo se usa en los contextos 
 
+    (async () => {
+      const localItems = readLocalJSON(CART_STORAGE_KEY) ?? [];
+      try {
+        const serverCart = await getCartByUser(user.id); 
+        if (cancelled) return;
+        setCartId(serverCart._id);
+      } catch (error) {
+        if (cancelled) return;
+        if (error.kind !== "NOT_FOUND") {
+          setError(error.kind ?? "SERVER_ERROR"); 
+        }
+      }
+    })(); 
     return () => {
-      cancelled = true
-    };  
-  }, [isAuthenticated]);
+      cancelled = true; 
+    }; 
+  }, [isAuthenticated, user?.id]); 
 
   const count = useMemo(
     () => items.reduce((acc,it) => acc +  it.quantity, 0), [items], 
@@ -51,62 +61,83 @@ export function CartProvider({ children }) {
   );
 
   const addItem = async (product, quantity = 1) => {
-    const previous = items; 
 
-    //update
-    setItems((curr) => {
-      const existing = curr.find((it) => it.product.id === product.id);
-      if (existing) {
-        return curr.map((it) => it.product.id === product.id ? 
-          {...it, quantity: it.quantity + quantity}
-          : it, 
-        );
-      }
-      return [...curr, {id: product.id, quantity, product }];
-    });
+    const existingProduct = items.find(
+      (item) => item.product._id === product._id,
+    ); 
 
-    // confirmar o rollback
-    try {
-      const data = await serviceAddItem(product.id, quantity); 
-      setItems(data.items); 
-    } catch (error) {
-      setItems(previous);
-      setError(error.kind || "SERVER_ERROR");
-    }
-  }
+    const nextItems = existing
+      ? items.map((item) =>
+          item.product._id === product._id
+            ? { ...item, quantity: item.quantity + quantity }
+            : item,
+        )
+      : [...items, { product, quantity }]; 
+
+      changeItems(nextItems); 
+
+    
+  };
 
   const updateQuantity = async (itemId, quantity ) => {
-    const previous = items; 
     
-    setItems ((curr) => {
-      curr.map ((it) => (it.id === itemId ? {...it, quantity} : it))
-    }); 
+    if (quantity < 1) removeItem(itemId);
 
-    try {
-      const data = await serviceUpdateQuantity(itemId, quantity);
-      setItems(data.items); 
-    } catch (error) {
-      setItems (previous), 
-      setError(error.kind || "SERVER_ERROR"); 
-    }
+    const nextItems = items.map((item) =>
+      item.product._id === itemId ? { ...item, quantity } : item,
+    ); 
+
+    changeItems(nextItems); 
   }; 
 
   const removeItem = async (itemId) => {
-    const previous = items; 
 
-    setItems ((curr) => curr.filter((it) => it.id === itemId)); 
+    changeItems (items.filter((item) => item.product._id !== itemId)); 
+  };
 
-    try {
-      const data = await serviceRemoveItem(itemId); 
-      setItems(data.items); 
-    } catch (error) {
-      setItems(previous);
-      setError(error.kind || "SERVER_ERROR"); 
+  const clearCart = () => changeItems ([]); 
+
+  const syncWithApi = async (nextItems) => {
+    if (!isAuthenticated) return; 
+
+    if (nextItems.length === 0){
+      if(cartId){
+        await serviceClearCart(cartId);
+        setCartId(null);
+      }
+    }
+
+    const products = nextItems.map((item) => ({
+      product: item.product._id,
+      quantity: item.quantity, 
+    }));
+
+    if(!cartId) {
+      const created = await createCart(user.id, products); 
+      setCartId(created._id); 
+    } else {
+      await replaceCart(cartId, user.id, products); 
     }
   };
 
+  const changeItems = (nextItems) => {
+    setItems(nextItems); 
+    setError(null); 
+    syncWithApi(nextItems).catch ((err) => {
+      setError(err.kind ?? "SERVER_ERROR"); 
+    }); 
+  };
+
   const value = {
-    items, count, total, addItem, loading, error
+    items,
+    count,
+    total,
+    addItem,
+    updateQuantity,
+    removeItem,
+    clearCart, 
+    loading,
+    error,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
