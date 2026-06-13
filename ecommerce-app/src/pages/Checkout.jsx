@@ -22,7 +22,7 @@ import "./Checkout.css";
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { cartItems, total, clearCart } = useCart();
+  const { items, total, clearCart } = useCart();
 
   // --- LÓGICA DE NEGOCIO FINANCIERA ---
   // Cálculos derivados del estado del carrito.
@@ -37,7 +37,7 @@ export default function Checkout() {
   const grandTotal = parseFloat(
     (subtotal + taxAmount + shippingCost).toFixed(2)
   );
-  debugger;
+
   const [isOrderFinished, setIsOrderFinished] = useState(false);
 
   // Utilidad para formatear moneda (MXN)
@@ -52,13 +52,12 @@ export default function Checkout() {
   // Efecto de protección de ruta:
   // Si el carrito está vacío y no estamos en proceso de confirmación, redirigir al carrito.
   useEffect(() => {
-    debugger;
-    if (!cartItems || cartItems.length === 0) {
+    if (!items || items.length === 0) {
       if (!isOrderFinished) {
         navigate("/cart");
       }
     }
-  }, [cartItems, navigate]);
+  }, [items, navigate]);
 
   // --- ESTADOS LOCALES (Gestión de UI y Datos) ---
 
@@ -341,8 +340,8 @@ export default function Checkout() {
     if (
       !selectedAddress ||
       !selectedPayment ||
-      !cartItems ||
-      cartItems.length === 0
+      !items ||
+      items.length === 0
     ) {
       return;
     }
@@ -350,9 +349,9 @@ export default function Checkout() {
     const order = {
       id: Date.now().toString(),
       date: new Date().toISOString(),
-      items: cartItems.map((item) => ({
+      items: items.map((item) => ({
         ...item,
-        subtotal: item.price * item.quantity,
+        subtotal: item.product.price * item.quantity,
       })),
       subtotal,
       tax: taxAmount,
@@ -498,11 +497,11 @@ export default function Checkout() {
               disabled={
                 !selectedAddress ||
                 !selectedPayment ||
-                !cartItems ||
-                cartItems.length === 0
+                !items ||
+                items.length === 0
               }
               title={
-                !cartItems || cartItems.length === 0
+                !items || items.length === 0
                   ? "No hay productos en el carrito"
                   : !selectedAddress
                   ? "Selecciona una dirección de envío"

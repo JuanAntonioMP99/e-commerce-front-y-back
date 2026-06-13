@@ -14,44 +14,44 @@ export default function CartView() {
       </div>
 
       {items &&
-        items.map((item) => (
-          <div className="cart-item" key={item._id}>
+        items.map(({product, quantity}) => (
+          <div className="cart-item" key={product._id}>
             <div className="cart-item-image">
-              <img src={item.imagesUrl[0]} alt={item.name} loading="lazy" />
+              <img src={product?.imagesUrl?.[0]} alt={product.name} loading="lazy" />
             </div>
 
             <div className="cart-item-info">
-              <h3>{item.name}</h3>
-              <p className="cart-item-price">{`$${item.price.toFixed(2)}`}</p>
+              <h3>{product.name}</h3>
+              <p className="cart-item-price">{`$${product.price.toFixed(2)}`}</p>
             </div>
 
             <div className="cart-item-quantity">
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => updateQuantity(item._id, item.quantity - 1)}
+                onClick={() => updateQuantity(product._id, quantity - 1)}
               >
                 <Icon name="minus" size={15}></Icon>
               </Button>
-              <span>{item.quantity}</span>
+              <span>{quantity}</span>
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => updateQuantity(item._id, item.quantity + 1)}
+                onClick={() => updateQuantity(product._id, quantity + 1)}
               >
                 <Icon name="plus" size={15}></Icon>
               </Button>
             </div>
 
             <div className="cart-item-total">
-              ${(item.price * item.quantity).toFixed(2)}
+              ${(product.price * quantity).toFixed(2)}
             </div>
 
             <Button
               variant="ghost"
               className="danger"
               size="sm"
-              onClick={() => removeItem(item._id)}
+              onClick={() => removeItem(product._id)}
               title="Eliminar artículo"
             >
               <Icon name="trash" size={16} />

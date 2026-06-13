@@ -17,13 +17,13 @@ export function CartProvider({ children }) {
   const {isAuthenticated, user} = useAuth();
   const [cartId, setCartId] = useState(null); 
   const [items, setItems] = useState(() => 
-    setItems(readLocalJSON(CART_STORAGE_KEY) ?? []), 
+    (readLocalJSON(CART_STORAGE_KEY) ?? []), 
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null); 
 
   useEffect(() => {
-    setItems(writeLocalJSON(CART_STORAGE_KEY, items));
+    (writeLocalJSON(CART_STORAGE_KEY, items));
   }, [items]); 
 
   useEffect(() => {
@@ -32,14 +32,23 @@ export function CartProvider({ children }) {
       return; 
     }
 
-    let cancelled = false; 
+    let cancelled = false; //funcion bandera, definir un valor como false o true, para que cuando cambie se realice una funcion/accion
 
     (async () => {
       const localItems = readLocalJSON(CART_STORAGE_KEY) ?? [];
       try {
         const serverCart = await getCartByUser(user.id); 
+        console.log(serverCart);
         if (cancelled) return;
+
+        const serverItems = serverCart.products.map((entry) => ({
+          product: entry.product, 
+          quantity: entry.quantity, 
+        }));
+
         setCartId(serverCart._id);
+        changeItems(mergeCarts(localItems, serverItems)); 
+
       } catch (error) {
         if (cancelled) return;
         if (error.kind !== "NOT_FOUND") {
@@ -52,12 +61,37 @@ export function CartProvider({ children }) {
     }; 
   }, [isAuthenticated, user?.id]); 
 
+  const mergeCarts = (localItems, serverItems) => {
+    const merged = serverItems.map((serverItem) => {
+      const localItem = localItems.find((item) => item.product._id === serverItem.product._id); 
+
+      if (localItem) {
+        return { ...serverItem, quantity: localItem.quantity}
+      }
+
+      return serverItem;
+    }); 
+
+    const onlyLocal = localItems.filter((localItem) => !serverItems.find (
+      (item) => item.product._id === localItem.product._id, 
+    ), ); 
+
+    return [...merged, ...onlyLocal]; 
+  };
+
   const count = useMemo(
-    () => items.reduce((acc,it) => acc +  it.quantity, 0), [items], 
+    () =>{ 
+      console.log(items)
+      return items.reduce((acc,it) => acc +  it.quantity, 0)
+
+    }, [items], 
   );
 
   const total = useMemo(
-    () => items.reduce((acc,it) => acc + it.quantity*it.product.price,0), [items], 
+
+    () =>{return items.reduce((acc,it) => acc + it.quantity*it.product.price,0)
+      }
+    , [items], 
   );
 
   const addItem = async (product, quantity = 1) => {
@@ -66,7 +100,7 @@ export function CartProvider({ children }) {
       (item) => item.product._id === product._id,
     ); 
 
-    const nextItems = existing
+    const nextItems = existingProduct
       ? items.map((item) =>
           item.product._id === product._id
             ? { ...item, quantity: item.quantity + quantity }
